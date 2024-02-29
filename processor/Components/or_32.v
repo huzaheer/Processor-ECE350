@@ -1,0 +1,37 @@
+module or_32(out, in0, in1);
+    input [31:0] in0, in1;
+    output [31:0] out;
+
+    or or_1(out[31], in0[31], in1[31]);
+    or or_2(out[30], in0[30], in1[30]);
+    or or_3(out[29], in0[29], in1[29]);
+    or or_4(out[28], in0[28], in1[28]);
+    or or_5(out[27], in0[27], in1[27]);
+    or or_6(out[26], in0[26], in1[26]);
+    or or_7(out[25], in0[25], in1[25]);
+    or or_8(out[24], in0[24], in1[24]);
+    or or_9(out[23], in0[23], in1[23]);
+    or or_10(out[22], in0[22], in1[22]);
+    or or_11(out[21], in0[21], in1[21]);
+    or or_12(out[20], in0[20], in1[20]);
+    or or_13(out[19], in0[19], in1[19]);
+    or or_14(out[18], in0[18], in1[18]);
+    or or_15(out[17], in0[17], in1[17]);
+    or or_16(out[16], in0[16], in1[16]);
+    or or_17(out[15], in0[15], in1[15]);
+    or or_18(out[14], in0[14], in1[14]);
+    or or_19(out[13], in0[13], in1[13]);
+    or or_20(out[12], in0[12], in1[12]);
+    or or_21(out[11], in0[11], in1[11]);
+    or or_22(out[10], in0[10], in1[10]);
+    or or_23(out[9 ], in0[9 ], in1[9 ]);
+    or or_24(out[8 ], in0[8 ], in1[8 ]);
+    or or_25(out[7 ], in0[7 ], in1[7 ]);
+    or or_26(out[6 ], in0[6 ], in1[6 ]);
+    or or_27(out[5 ], in0[5 ], in1[5 ]);
+    or or_28(out[4 ], in0[4 ], in1[4 ]);
+    or or_29(out[3 ], in0[3 ], in1[3 ]);
+    or or_30(out[2 ], in0[2 ], in1[2 ]);
+    or or_31(out[1 ], in0[1 ], in1[1 ]);
+    or or_32(out[0 ], in0[0 ], in1[0 ]);
+endmodule

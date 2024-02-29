@@ -62,6 +62,50 @@ module processor(
 	input [31:0] data_readRegA, data_readRegB;
 
 	/* YOUR CODE STARTS HERE */
+
+    /////////////////////////  Creating wires ////////////////////////////
+
+    wire [4:0] Opcode, rd, rs, rt, shamt, AlU_op;
+    wire [16:0] immediate;
+    wire [26:0] target;
+    wire not_clock, ctrl_writeEnable;
+    wire [31:0] PC, PC_next, PC_plusone;
+
+    wire Cout, 
+    // assign not_clock toovf trigger on falling edge
+    assign not_clock = ~clock;
+
+    /////////////////////////  Handling PC /////////////////////////
+
+    assign PC = reset ? 32'b0 : PC_next;
+
+    thirtytwo_bit_adder PC_increment(Cout, 1'b0, PC, 32'b1, PC_plusone, ovf);
+
+    register PC_reg(not_clock, ctrl_writeEnable, reset, data_writeReg, PC_next);
+
+
+
+
+    /////////////////////////  Fetching Instruction /////////////////////////
+
+
+    // For R type instructions
+    assign Opcode = q_imem[1:27];
+    assign rd = q_imem[26:22];
+    assign rs = q_imem[21:17];
+    assign rt = q_imem[6:12];
+    assign shamt = q_imem[11:7];
+    assign AlU_op = q_imem[6:2];
+
+    // For I type instructions
+    assign immediate = q_imem[16:0];
+
+    // For JI type instructions
+    assign target = q_imem[26:0];
+
+    /////////////////////////  Decoding Instruction /////////////////////////
+    latch F_D(not_clock, ctrl_writeEnable, reset, PC, A, B, IR, reg_1, reg_2, reg_3, reg_4);  //What is PC?
+
 	
 	/* END CODE */
 
