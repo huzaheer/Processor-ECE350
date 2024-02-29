@@ -1,0 +1,15 @@
+FD_Opcode, FD_rd, FD_rs, FD_rt, FD_shamt, FD_AlU_op,
+FD_immediate,
+FD_target
+
+DX_Opcode, DX_rd, DX_rs, DX_rt, DX_shamt, DX_AlU_op,
+DX_immediate,
+DX_target
+
+XM_Opcode, XM_rd, XM_rs, XM_rt, XM_shamt, XM_AlU_op,
+XM_immediate,
+XM_target
+
+MW_Opcode, MW_rd, MW_rs, MW_rt, MW_shamt, MW_AlU_op,
+MW_immediate,
+MW_target

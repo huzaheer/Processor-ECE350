@@ -1,3 +1,4 @@
+./latches.v
 ./Wrapper_tb.v
 ./Wrapper.v
 ./Components/tffe.v

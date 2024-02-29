@@ -66,14 +66,22 @@ module processor(
     /////////////////////////  Creating wires ////////////////////////////
 
     wire [4:0] Opcode, rd, rs, rt, shamt, AlU_op;
-    wire [16:0] immediate;
-    wire [26:0] target;
-    wire not_clock, ctrl_writeEnable;
-    wire [31:0] PC, PC_next, PC_plusone;
+    wire [4:0] FD_Opcode, FD_rd, FD_rs, FD_rt, FD_shamt, FD_AlU_op;
+    wire [4:0] DX_Opcode, DX_rd, DX_rs, DX_rt, DX_shamt, DX_AlU_op;
+    wire [4:0] XM_Opcode, XM_rd, XM_rs, XM_rt, XM_shamt, XM_AlU_op;
+    wire [4:0] MW_Opcode, MW_rd, MW_rs, MW_rt, MW_shamt, MW_AlU_op;
+    wire [16:0] immediate, FD_immediate, DX_immediate, XM_immediate, MW_immediate;
+    wire [26:0] target, FD_target, DX_target, XM_target, MW_target;
+    wire not_clock, ctrl_writeEnable, isNotEqual, isLessThan, overflow, isNotEqual_2, isLessThan_2, overflow_2;
+    wire [31:0] PC, PC_next, PC_plusone, FDout_1, FDout_2, FDout_3, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4;
+    wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg;
+    wire Cout, ovf; //randos
 
-    wire Cout, 
-    // assign not_clock toovf trigger on falling edge
+    // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
+
+    // assigning 1 for ctrl_write enable for now
+    assign ctrl_writeEnable = 1'b1;
 
     /////////////////////////  Handling PC /////////////////////////
 
@@ -81,19 +89,17 @@ module processor(
 
     thirtytwo_bit_adder PC_increment(Cout, 1'b0, PC, 32'b1, PC_plusone, ovf);
 
-    register PC_reg(not_clock, ctrl_writeEnable, reset, data_writeReg, PC_next);
+    assign address_imem = PC_plusone;
 
-
-
+    register PC_reg(not_clock, ctrl_writeEnable, reset, PC_plusone, PC_next);
 
     /////////////////////////  Fetching Instruction /////////////////////////
 
-
     // For R type instructions
-    assign Opcode = q_imem[1:27];
+    assign Opcode = q_imem[31:27];
     assign rd = q_imem[26:22];
     assign rs = q_imem[21:17];
-    assign rt = q_imem[6:12];
+    assign rt = q_imem[16:12];
     assign shamt = q_imem[11:7];
     assign AlU_op = q_imem[6:2];
 
@@ -102,11 +108,62 @@ module processor(
 
     // For JI type instructions
     assign target = q_imem[26:0];
-
+    
     /////////////////////////  Decoding Instruction /////////////////////////
-    latch F_D(not_clock, ctrl_writeEnable, reset, PC, A, B, IR, reg_1, reg_2, reg_3, reg_4);  //What is PC?
+    latch F_D(not_clock, ctrl_writeEnable, reset, PC_plusone, 32'b0, 32'b0, q_imem, FDout_1, FDout_2, FDout_3, FDout_4);
 
-	
+    // For R type instructions
+    assign FD_Opcode = FDout_4[31:27];
+    assign FD_rd = FDout_4[26:22];
+    assign FD_rs = FDout_4[21:17];
+    assign FD_rt = FDout_4[16:12];
+    assign FD_shamt = FDout_4[11:7];
+    assign FD_AlU_op = FDout_4[6:2];
+
+    // For I type instructions
+    assign FD_immediate = FDout_4[16:0];
+
+    // For JI type instructions
+    assign FD_target = FDout_4[26:0];
+
+    assign ctrl_readRegA = FD_rs;
+    assign ctrl_readRegB = FD_rt;
+    /////////////////////////  Executing Instruction /////////////////////////
+    latch D_X(not_clock, ctrl_writeEnable, reset, FDout_1, data_readRegA, data_readRegB, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
+
+    // For R type instructions
+    assign DX_Opcode = DXout_4[31:27];
+    assign DX_rd = DXout_4[26:22];
+    assign DX_rs = DXout_4[21:17];
+    assign DX_rt = DXout_4[16:12];
+    assign DX_shamt = DXout_4[11:7];
+    assign DX_AlU_op = DXout_4[6:2];
+
+    // For I type instructions
+    assign DX_immediate = DXout_4[16:0];
+
+    // For JI type instructions
+    assign DX_target = DXout_4[26:0];
+
+    assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
+
+    alu my_alu(DXout_2, DXout_3, DX_Opcode, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
+
+    alu my_alu_2(DXout_2, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
+
+    assign DX_data_writeReg = DX_Opcode[0] ? alu_result_temp_w_imm : alu_result_temp;
+
+    /////////////////////////  Memorying Instruction /////////////////////////
+	latch X_M(not_clock, ctrl_writeEnable, reset, DXout_1, DX_data_writeReg, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+
+    // Code for writing to data memory
+
+    /////////////////////////  Writebacking Instruction /////////////////////////
+    latch M_W(not_clock, ctrl_writeEnable, reset, XMDout_1, XMDout_2, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
+
+    assign data_writeReg = MWout_2;
+    assign ctrl_writeReg = MWout_4[26:22];
+
 	/* END CODE */
 
 endmodule
