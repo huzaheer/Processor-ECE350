@@ -147,7 +147,7 @@ module processor(
 
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
-    alu my_alu(DXout_2, DXout_3, DX_Opcode, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
+    alu my_alu(DXout_2, DXout_3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
     alu my_alu_2(DXout_2, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
 
