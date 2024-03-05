@@ -74,8 +74,9 @@ module processor(
     wire [26:0] target, FD_target, DX_target, XM_target, MW_target;
     wire not_clock, ctrl_writeEnable, isNotEqual, isLessThan, overflow, isNotEqual_2, isLessThan_2, overflow_2;
     wire [31:0] PC, PC_next, PC_plusone, FDout_1, FDout_2, FDout_3, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4;
-    wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg;
-    wire Cout, ovf; //randos
+    wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result;
+    wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial; //randos
+    wire [4:0] counter_out;
 
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
@@ -153,6 +154,29 @@ module processor(
 
     assign DX_data_writeReg = DX_Opcode[0] ? alu_result_temp_w_imm : alu_result_temp;
 
+    // when multdiv, make ctrl_mult or ctrl_div high, turn off write enable and turn it back on when data ready is pulsed
+
+    assign ctrl_MULT_initial = (DX_AlU_op == 32'b00110) ? 1'b1 : 1'b0;
+    assign ctrl_DIV_initial = (DX_AlU_op == 32'b00111) ? 1'b1 : 1'b0;
+    assign counter_reset = (DX_AlU_op == 32'b00111 || DX_AlU_op == 32'b00110 || turn_off) ? 1'b0 : 1'b1;
+
+    counter my_count(1'b1, clock, counter_out, counter_reset);
+
+    assign turn_off = (counter_out == 16'b0001) ? 1'b1 : 1'b0;
+
+    assign ctrl_MULT = turn_off ? 1'b0 : ctrl_MULT_initial;
+
+    assign ctrl_DIV = turn_off ? 1'b0 : ctrl_DIV_initial;
+
+    //module counter(T, clk, out, reset);
+    /*module multdiv(
+	data_operandA, data_operandB, 
+	ctrl_MULT, ctrl_DIV, 
+	clock, 
+	data_result, data_exception, data_resultRDY);*/
+
+    multdiv my_multdiv(DXout_2, DXout_3, ctrl_MULT, ctrl_DIV, clock, multdiv_result, data_exception, data_resultRDY)
+
     /////////////////////////  Memorying Instruction /////////////////////////
 	latch X_M(not_clock, ctrl_writeEnable, reset, DXout_1, DX_data_writeReg, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
@@ -163,6 +187,7 @@ module processor(
 
     assign data_writeReg = MWout_2;
     assign ctrl_writeReg = MWout_4[26:22];
+
 
 	/* END CODE */
 
