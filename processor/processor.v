@@ -77,7 +77,7 @@ module processor(
     wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result, new_address, DX_data_writeReg_2, new_address_2;
     wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
     wire [4:0] counter_out;
-    wire [31:0] PC_or_Reg;//more randos
+    wire [31:0] PC_or_Reg, X_to_M, D_to_X;//more randos
 
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
@@ -125,8 +125,8 @@ module processor(
     // For JI type instructions
     assign FD_target = FDout_4[26:0];
 
-    assign ctrl_readRegA = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110) ? FD_rd : FD_rs; // for when u want rd to be read from
-    assign ctrl_readRegB = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110) ? FD_rs : FD_rt; // then equivalently you want rs for rt
+    assign ctrl_readRegA = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00111 || FD_Opcode == 5'b01000) ? FD_rd : FD_rs; // for when u want rd to be read from
+    assign ctrl_readRegB = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00111 || FD_Opcode == 5'b01000) ? FD_rs : FD_rt; // then equivalently you want rs for rt
     /////////////////////////  Executing Instruction /////////////////////////
     latch D_X(not_clock, latch_enable, reset, FDout_1, data_readRegA, data_readRegB, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
 
@@ -152,7 +152,7 @@ module processor(
 
     alu my_alu_2(PC_or_Reg, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
 
-    assign DX_data_writeReg = DX_Opcode[0] ? alu_result_temp_w_imm : alu_result_temp;
+    assign DX_data_writeReg = (DX_Opcode[0] == 1'b1 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? alu_result_temp_w_imm : alu_result_temp;
 
     assign DX_data_writeReg_2 = (DX_Opcode == 5'b00011) ? PC : DX_data_writeReg;
 
@@ -160,17 +160,24 @@ module processor(
 
     assign new_address_2 = ((DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1)) ? alu_result_temp_w_imm : new_address;
 
+    assign D_to_X = (DX_Opcode == 5'b00111) ? DXout_2 : DXout_3; // D_to_X = $rd if lw or sw
+
     // when multdiv, make ctrl_mult or ctrl_div high, turn off write enable and turn it back on when data ready is pulsed
 
     /////////////////////////  Memorying Instruction /////////////////////////
-	latch X_M(not_clock, latch_enable, reset, DXout_1, DX_data_writeReg_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+	latch X_M(not_clock, latch_enable, reset, DXout_1, DX_data_writeReg_2, D_to_X, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+
+    assign address_dmem = XMDout_2;
+    assign wren = (XMDout_4[31:27] == 5'b00111 || XMDout_4[31:27] == 5'b01000) ? 1'b1 : 1'b0;
+    assign X_to_M = (XMDout_4[31:27] == 5'b01000) ? q_dmem : XMDout_2;
+    assign data = XMDout_3; //data = $rd
 
     // Code for writing to data memory
 
     /////////////////////////  Writebacking Instruction /////////////////////////
-    latch M_W(not_clock, latch_enable, reset, XMDout_1, XMDout_2, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
+    latch M_W(not_clock, latch_enable, reset, XMDout_1, X_to_M, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
 
-    assign ctrl_writeEnable = (MWout_4[31:27] == 5'b00000 || MWout_4[31:27] == 5'b00101 || MWout_4[31:27] == 5'b00011) ? 1'b1 : 1'b0;
+    assign ctrl_writeEnable = (MWout_4[31:27] == 5'b00000 || MWout_4[31:27] == 5'b00101 || MWout_4[31:27] == 5'b00011 || MWout_4[31:27] == 5'b01000) ? 1'b1 : 1'b0;
     assign data_writeReg = MWout_2;
     assign ctrl_writeReg = (MWout_4[31:27] == 5'b00011) ? 5'b11111 : MWout_4[26:22];
 	/* END CODE */
