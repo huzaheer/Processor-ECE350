@@ -77,7 +77,7 @@ module processor(
     wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result, new_address, DX_data_writeReg_2, new_address_2;
     wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
     wire [4:0] counter_out;
-    wire [31:0] PC_or_Reg, X_to_M, D_to_X;//more randos
+    wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs;//more randos
 
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
@@ -150,7 +150,9 @@ module processor(
 
     assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1 : DXout_2;
 
-    alu my_alu_2(PC_or_Reg, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
+    assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? DXout_3 : PC_or_Reg;
+
+    alu my_alu_2(PC_or_Reg_or_Rs, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
 
     assign DX_data_writeReg = (DX_Opcode[0] == 1'b1 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? alu_result_temp_w_imm : alu_result_temp;
 
@@ -168,7 +170,7 @@ module processor(
 	latch X_M(not_clock, latch_enable, reset, DXout_1, DX_data_writeReg_2, D_to_X, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
     assign address_dmem = XMDout_2;
-    assign wren = (XMDout_4[31:27] == 5'b00111 || XMDout_4[31:27] == 5'b01000) ? 1'b1 : 1'b0;
+    assign wren = (XMDout_4[31:27] == 5'b00111) ? 1'b1 : 1'b0;
     assign X_to_M = (XMDout_4[31:27] == 5'b01000) ? q_dmem : XMDout_2;
     assign data = XMDout_3; //data = $rd
 

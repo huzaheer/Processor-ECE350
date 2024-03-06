@@ -1,15 +1,14 @@
-FD_Opcode, FD_rd, FD_rs, FD_rt, FD_shamt, FD_AlU_op,
-FD_immediate,
-FD_target
 
-DX_Opcode, DX_rd, DX_rs, DX_rt, DX_shamt, DX_AlU_op,
-DX_immediate,
-DX_target
+    // assign ctrl_MULT_initial = (DX_AlU_op == 32'b00110) ? 1'b1 : 1'b0;
+    // assign ctrl_DIV_initial = (DX_AlU_op == 32'b00111) ? 1'b1 : 1'b0;
+    // assign counter_reset = (DX_AlU_op == 32'b00111 || DX_AlU_op == 32'b00110 || turn_off) ? 1'b0 : 1'b1;
 
-XM_Opcode, XM_rd, XM_rs, XM_rt, XM_shamt, XM_AlU_op,
-XM_immediate,
-XM_target
+    // counter my_count(1'b1, clock, counter_out, counter_reset);
 
-MW_Opcode, MW_rd, MW_rs, MW_rt, MW_shamt, MW_AlU_op,
-MW_immediate,
-MW_target
+    // assign turn_off = (counter_out == 16'b0001) ? 1'b1 : 1'b0;
+
+    // assign ctrl_MULT = turn_off ? 1'b0 : ctrl_MULT_initial;
+
+    // assign ctrl_DIV = turn_off ? 1'b0 : ctrl_DIV_initial;
+
+    // multdiv my_multdiv(DXout_2, DXout_3, ctrl_MULT, ctrl_DIV, clock, multdiv_result, data_exception, data_resultRDY);
