@@ -74,25 +74,23 @@ module processor(
     wire [26:0] target, FD_target, DX_target, XM_target, MW_target;
     wire not_clock, ctrl_writeEnable, isNotEqual, isLessThan, overflow, isNotEqual_2, isLessThan_2, overflow_2;
     wire [31:0] PC, PC_next, PC_plusone, FDout_1, FDout_2, FDout_3, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4;
-    wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result;
-    wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial; //randos
+    wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result, new_address, DX_data_writeReg_2, new_address_2;
+    wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
     wire [4:0] counter_out;
+    wire [31:0] PC_or_Reg;//more randos
 
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
-
-    // assigning 1 for ctrl_write enable for now
-    assign ctrl_writeEnable = 1'b1;
-
+    assign latch_enable = 1'b1;
     /////////////////////////  Handling PC /////////////////////////
 
     assign PC = reset ? 32'b0 : PC_next;
 
     thirtytwo_bit_adder PC_increment(Cout, 1'b0, PC, 32'b1, PC_plusone, ovf);
 
-    assign address_imem = PC_plusone;
+    assign address_imem = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1)) ? new_address_2 : PC_plusone;
 
-    register PC_reg(not_clock, ctrl_writeEnable, reset, PC_plusone, PC_next);
+    register PC_reg(not_clock, latch_enable, reset, address_imem, PC_next);
 
     /////////////////////////  Fetching Instruction /////////////////////////
 
@@ -111,7 +109,7 @@ module processor(
     assign target = q_imem[26:0];
     
     /////////////////////////  Decoding Instruction /////////////////////////
-    latch F_D(not_clock, ctrl_writeEnable, reset, PC_plusone, 32'b0, 32'b0, q_imem, FDout_1, FDout_2, FDout_3, FDout_4);
+    latch F_D(not_clock, latch_enable, reset, address_imem, 32'b0, 32'b0, q_imem, FDout_1, FDout_2, FDout_3, FDout_4);
 
     // For R type instructions
     assign FD_Opcode = FDout_4[31:27];
@@ -127,10 +125,10 @@ module processor(
     // For JI type instructions
     assign FD_target = FDout_4[26:0];
 
-    assign ctrl_readRegA = FD_rs;
-    assign ctrl_readRegB = FD_rt;
+    assign ctrl_readRegA = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110) ? FD_rd : FD_rs; // for when u want rd to be read from
+    assign ctrl_readRegB = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110) ? FD_rs : FD_rt; // then equivalently you want rs for rt
     /////////////////////////  Executing Instruction /////////////////////////
-    latch D_X(not_clock, ctrl_writeEnable, reset, FDout_1, data_readRegA, data_readRegB, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
+    latch D_X(not_clock, latch_enable, reset, FDout_1, data_readRegA, data_readRegB, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
 
     // For R type instructions
     assign DX_Opcode = DXout_4[31:27];
@@ -150,45 +148,31 @@ module processor(
 
     alu my_alu(DXout_2, DXout_3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
-    alu my_alu_2(DXout_2, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1 : DXout_2;
+
+    alu my_alu_2(PC_or_Reg, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
 
     assign DX_data_writeReg = DX_Opcode[0] ? alu_result_temp_w_imm : alu_result_temp;
 
+    assign DX_data_writeReg_2 = (DX_Opcode == 5'b00011) ? PC : DX_data_writeReg;
+
+    assign new_address = (DX_Opcode == 5'b00100) ? DXout_2 : {PC[31:27], DX_target};
+
+    assign new_address_2 = ((DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1)) ? alu_result_temp_w_imm : new_address;
+
     // when multdiv, make ctrl_mult or ctrl_div high, turn off write enable and turn it back on when data ready is pulsed
 
-    assign ctrl_MULT_initial = (DX_AlU_op == 32'b00110) ? 1'b1 : 1'b0;
-    assign ctrl_DIV_initial = (DX_AlU_op == 32'b00111) ? 1'b1 : 1'b0;
-    assign counter_reset = (DX_AlU_op == 32'b00111 || DX_AlU_op == 32'b00110 || turn_off) ? 1'b0 : 1'b1;
-
-    counter my_count(1'b1, clock, counter_out, counter_reset);
-
-    assign turn_off = (counter_out == 16'b0001) ? 1'b1 : 1'b0;
-
-    assign ctrl_MULT = turn_off ? 1'b0 : ctrl_MULT_initial;
-
-    assign ctrl_DIV = turn_off ? 1'b0 : ctrl_DIV_initial;
-
-    //module counter(T, clk, out, reset);
-    /*module multdiv(
-	data_operandA, data_operandB, 
-	ctrl_MULT, ctrl_DIV, 
-	clock, 
-	data_result, data_exception, data_resultRDY);*/
-
-    multdiv my_multdiv(DXout_2, DXout_3, ctrl_MULT, ctrl_DIV, clock, multdiv_result, data_exception, data_resultRDY)
-
     /////////////////////////  Memorying Instruction /////////////////////////
-	latch X_M(not_clock, ctrl_writeEnable, reset, DXout_1, DX_data_writeReg, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+	latch X_M(not_clock, latch_enable, reset, DXout_1, DX_data_writeReg_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
     // Code for writing to data memory
 
     /////////////////////////  Writebacking Instruction /////////////////////////
-    latch M_W(not_clock, ctrl_writeEnable, reset, XMDout_1, XMDout_2, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
+    latch M_W(not_clock, latch_enable, reset, XMDout_1, XMDout_2, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
 
+    assign ctrl_writeEnable = (MWout_4[31:27] == 5'b00000 || MWout_4[31:27] == 5'b00101 || MWout_4[31:27] == 5'b00011) ? 1'b1 : 1'b0;
     assign data_writeReg = MWout_2;
-    assign ctrl_writeReg = MWout_4[26:22];
-
-
+    assign ctrl_writeReg = (MWout_4[31:27] == 5'b00011) ? 5'b11111 : MWout_4[26:22];
 	/* END CODE */
 
 endmodule
