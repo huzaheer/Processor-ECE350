@@ -79,7 +79,7 @@ module processor(
     wire [4:0] counter_out;
     wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
     wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs;
-    wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs;
+    wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4;
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
     assign diff_latch_enable = 1'b1;
@@ -129,8 +129,11 @@ module processor(
     assign ctrl_readRegtemp = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00111 || FD_Opcode == 5'b01000) ? FD_rd : FD_rs; // for when u want rd to be read from
     assign ctrl_readRegA = (FD_Opcode == 5'b10110) ?  5'b11110: ctrl_readRegtemp;
     assign ctrl_readRegB = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00111 || FD_Opcode == 5'b01000) ? FD_rs : FD_rt; // then equivalently you want rs for rt
+
+    ///////// Flushing this instruction incase the next instruction is a taken branch of jump
+    assign altFDout_4 = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1) || (DX_Opcode == 5'b10110 && do_bex == 1'b1)) ? 32'b0 : FDout_4;
     /////////////////////////  Executing Instruction /////////////////////////
-    latch D_X(not_clock, latch_enable, reset, FDout_1, data_readRegA, data_readRegB, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
+    latch D_X(not_clock, latch_enable, reset, FDout_1, data_readRegA, data_readRegB, altFDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
 
     // For R type instructions
     assign DX_Opcode = DXout_4[31:27];
@@ -150,7 +153,7 @@ module processor(
 
     alu my_alu(DXout_2, DXout_3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
-    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1 : DXout_2; // Choosing between PC and normal Rs
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1 + 1: DXout_2; // Choosing between PC and normal Rs
 
     assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? DXout_3 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
 
