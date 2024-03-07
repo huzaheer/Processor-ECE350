@@ -78,8 +78,8 @@ module processor(
     wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, my_counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
     wire [4:0] counter_out;
     wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
-    wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs;
-    wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4;
+    wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs, not_in_use_1, not_in_use_2, not_in_use_3;
+    wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4, DXout_1_plus_one;
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
     assign diff_latch_enable = 1'b1;
@@ -153,7 +153,9 @@ module processor(
 
     alu my_alu(DXout_2, DXout_3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
-    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1 + 1: DXout_2; // Choosing between PC and normal Rs
+    alu my_alu_3(DXout_1, 32'b1, 5'b0, 5'b0, DXout_1_plus_one, not_in_use_1, not_in_use_2, not_in_use_3);
+
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : DXout_2; // Choosing between PC and normal Rs
 
     assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? DXout_3 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
 
