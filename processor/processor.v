@@ -77,8 +77,9 @@ module processor(
     wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result, new_address, DX_data_writeReg_2, new_address_2;
     wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, my_counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
     wire [4:0] counter_out;
-    wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3;//more randos
-    wire multdiv_alarm, diff_latch_enable, do_bex;
+    wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
+    wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs;
+    wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs;
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
     assign diff_latch_enable = 1'b1;
@@ -185,10 +186,30 @@ module processor(
 
     assign latch_enable = (((DX_AlU_op == 5'b00110 && data_resultRDY == 1'b0) || (DX_AlU_op == 5'b00111 && data_resultRDY == 1'b0)) && DX_Opcode == 5'b00000) ? 1'b0 : 1'b1; // turn latches off if multdiv operation and result not ready
 
-    // assign latch_enable = 1'b1;
+    // Checking for status registers
+
+    assign rstat_1 = (DX_AlU_op == 5'b00000) && (overflow == 1'b1) ? 32'b1 : 32'b0;
+    assign rstat_2 = (DX_Opcode == 5'b00101 && overflow_2 == 1'b1) ? 32'b00000000000000000000000000000010 : 32'b0;
+    assign rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1) ? 32'b00000000000000000000000000000011 : 32'b0;
+    assign rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1) ? 32'b00000000000000000000000000000100 : 32'b0;
+    assign rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1) ? 32'b00000000000000000000000000000101 : 32'b0;
+
+    assign checK_rstat_1 = (DX_AlU_op == 5'b00000 && overflow == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_2 = (DX_Opcode == 5'b00101 && overflow_2 == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1) ? 1'b1 : 1'b0;
+
+    or finalchecl(there_is_rs, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5);
+
+    mux_8 chooser(rs_temp_1, DX_AlU_op[2:0], rstat_1, rstat_3, 0, 0, 0, 0, rstat_4, rstat_5);
+
+    assign actualrs = (DX_Opcode == 5'b00101) ? rstat_2 : rs_temp_1;
+
+    assign altDXout_4 = (there_is_rs == 1'b1) ? {5'b10101, actualrs[26:0]} : DXout_4;
 
     /////////////////////////  Memorying Instruction /////////////////////////
-	latch X_M(not_clock, diff_latch_enable, reset, DXout_1, DX_data_writeReg_3, D_to_X, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+	latch X_M(not_clock, diff_latch_enable, reset, DXout_1, DX_data_writeReg_3, D_to_X, altDXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
     assign address_dmem = XMDout_2;
     assign wren = (XMDout_4[31:27] == 5'b00111) ? 1'b1 : 1'b0;
