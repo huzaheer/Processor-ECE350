@@ -32,6 +32,7 @@
 ./Components/mux_8.v
 ./Components/mux_2.v
 ./Components/left_shifter_16.v
+./Components/reg_65.v
 ./RAM.v
 ./processor.v
 ./ROM.v

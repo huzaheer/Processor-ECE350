@@ -69,6 +69,6 @@ module mult(
     assign to_store = $signed(interim) >>> 2;
     assign data_result = to_store[32:1];
 
-    register reg_64(clock, 1'b1, 1'b0, to_store, continue);
+    register_65 reg_65(clock, 1'b1, 1'b0, to_store, continue);
 
 endmodule

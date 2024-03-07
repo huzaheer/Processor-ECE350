@@ -1,0 +1,75 @@
+module register_65(clock, ctrl_writeEnable, ctrl_reset, data_writeReg, reg_out);
+
+	input clock, ctrl_writeEnable, ctrl_reset;
+	input [64:0] data_writeReg;
+	output [64:0] reg_out;
+
+
+    ///////////////////////////// Defining D flip flops /////////////////////////////
+	dffe_ref dff0(reg_out[0], data_writeReg[0], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff1(reg_out[1], data_writeReg[1], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff2(reg_out[2], data_writeReg[2], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff3(reg_out[3], data_writeReg[3], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff4(reg_out[4], data_writeReg[4], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff5(reg_out[5], data_writeReg[5], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff6(reg_out[6], data_writeReg[6], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff7(reg_out[7], data_writeReg[7], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff8(reg_out[8], data_writeReg[8], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff9(reg_out[9], data_writeReg[9], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff10(reg_out[10], data_writeReg[10], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff11(reg_out[11], data_writeReg[11], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff12(reg_out[12], data_writeReg[12], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff13(reg_out[13], data_writeReg[13], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff14(reg_out[14], data_writeReg[14], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff15(reg_out[15], data_writeReg[15], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff16(reg_out[16], data_writeReg[16], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff17(reg_out[17], data_writeReg[17], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff18(reg_out[18], data_writeReg[18], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff19(reg_out[19], data_writeReg[19], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff20(reg_out[20], data_writeReg[20], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff21(reg_out[21], data_writeReg[21], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff22(reg_out[22], data_writeReg[22], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff23(reg_out[23], data_writeReg[23], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff24(reg_out[24], data_writeReg[24], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff25(reg_out[25], data_writeReg[25], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff26(reg_out[26], data_writeReg[26], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff27(reg_out[27], data_writeReg[27], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff28(reg_out[28], data_writeReg[28], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff29(reg_out[29], data_writeReg[29], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff30(reg_out[30], data_writeReg[30], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff31(reg_out[31], data_writeReg[31], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff32(reg_out[32], data_writeReg[32], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff33(reg_out[33], data_writeReg[33], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff34(reg_out[34], data_writeReg[34], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff35(reg_out[35], data_writeReg[35], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff36(reg_out[36], data_writeReg[36], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff37(reg_out[37], data_writeReg[37], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff38(reg_out[38], data_writeReg[38], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff39(reg_out[39], data_writeReg[39], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff40(reg_out[40], data_writeReg[40], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff41(reg_out[41], data_writeReg[41], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff42(reg_out[42], data_writeReg[42], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff43(reg_out[43], data_writeReg[43], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff44(reg_out[44], data_writeReg[44], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff45(reg_out[45], data_writeReg[45], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff46(reg_out[46], data_writeReg[46], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff47(reg_out[47], data_writeReg[47], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff48(reg_out[48], data_writeReg[48], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff49(reg_out[49], data_writeReg[49], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff50(reg_out[50], data_writeReg[50], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff51(reg_out[51], data_writeReg[51], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff52(reg_out[52], data_writeReg[52], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff53(reg_out[53], data_writeReg[53], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff54(reg_out[54], data_writeReg[54], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff55(reg_out[55], data_writeReg[55], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff56(reg_out[56], data_writeReg[56], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff57(reg_out[57], data_writeReg[57], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff58(reg_out[58], data_writeReg[58], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff59(reg_out[59], data_writeReg[59], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff60(reg_out[60], data_writeReg[60], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff61(reg_out[61], data_writeReg[61], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff62(reg_out[62], data_writeReg[62], clock, ctrl_writeEnable, ctrl_reset);
+	dffe_ref dff63(reg_out[63], data_writeReg[63], clock, ctrl_writeEnable, ctrl_reset);
+    dffe_ref dff64(reg_out[64], data_writeReg[64], clock, ctrl_writeEnable, ctrl_reset);
+
+endmodule
