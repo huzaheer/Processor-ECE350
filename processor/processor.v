@@ -75,11 +75,12 @@ module processor(
     wire not_clock, ctrl_writeEnable, isNotEqual, isLessThan, overflow, isNotEqual_2, isLessThan_2, overflow_2;
     wire [31:0] PC, PC_next, PC_plusone, FDout_1, FDout_2, FDout_3, FDout_4, DXout_1, DXout_2, DXout_3, DXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4;
     wire [31:0] alu_result_temp, alu_result_temp_w_imm, sign_ext_imm, DX_data_writeReg, multdiv_result, new_address, DX_data_writeReg_2, new_address_2;
-    wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, my_counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable; //randos
+    wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, my_counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable, stalled_enable; //randos
     wire [4:0] counter_out;
     wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
     wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs, not_in_use_1, not_in_use_2, not_in_use_3;
     wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4, DXout_1_plus_one;
+    wire [31:0] ALU_input_A_check1, ALU_input_A_check2, ALU_input_B_check1, ALU_input_B_check2, WM_bypass, stall, account_stall;
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
     assign diff_latch_enable = 1'b1;
@@ -91,7 +92,7 @@ module processor(
 
     assign address_imem = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1) || (DX_Opcode == 5'b10110 && do_bex == 1'b1)) ? new_address_2 : PC_plusone;
 
-    register PC_reg(not_clock, latch_enable, reset, address_imem, PC_next);
+    register PC_reg(not_clock, stalled_enable, reset, address_imem, PC_next);
 
     /////////////////////////  Fetching Instruction /////////////////////////
 
@@ -110,7 +111,7 @@ module processor(
     assign target = q_imem[26:0];
     
     /////////////////////////  Decoding Instruction /////////////////////////
-    latch F_D(not_clock, latch_enable, reset, address_imem, 32'b0, 32'b0, q_imem, FDout_1, FDout_2, FDout_3, FDout_4);
+    latch F_D(not_clock, stalled_enable, reset, address_imem, 32'b0, 32'b0, q_imem, FDout_1, FDout_2, FDout_3, FDout_4);
 
     // For R type instructions
     assign FD_Opcode = FDout_4[31:27];
@@ -130,8 +131,14 @@ module processor(
     assign ctrl_readRegA = (FD_Opcode == 5'b10110) ?  5'b11110: ctrl_readRegtemp;
     assign ctrl_readRegB = (FD_Opcode == 5'b00100 || FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00111 || FD_Opcode == 5'b01000) ? FD_rs : FD_rt; // then equivalently you want rs for rt
 
-    ///////// Flushing this instruction incase the next instruction is a taken branch of jump
-    assign altFDout_4 = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1) || (DX_Opcode == 5'b10110 && do_bex == 1'b1)) ? 32'b0 : FDout_4;
+    ///////// Flushing this instruction incase the next instruction is a taken branch or jump or if stall in which case we remember but wait one cycle before continuing
+    assign altFDout_4 = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || stall == 1'b1 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1) || (DX_Opcode == 5'b10110 && do_bex == 1'b1)) ? 32'b0 : FDout_4;
+
+    //////// Logic for when to stall
+    assign stall = (DX_Opcode == 5'b01000 && ((FD_rs == DX_rd) || (DX_Opcode != 5'b00111 && FD_rt == DX_rd))) ? 1'b1 : 1'b0;
+
+    assign stalled_enable = (stall == 1'b1 || latch_enable == 1'b0) ? 1'b0 : 1'b1;
+
     /////////////////////////  Executing Instruction /////////////////////////
     latch D_X(not_clock, latch_enable, reset, FDout_1, data_readRegA, data_readRegB, altFDout_4, DXout_1, DXout_2, DXout_3, DXout_4);
 
@@ -151,11 +158,21 @@ module processor(
 
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
-    alu my_alu(DXout_2, DXout_3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
+    // bypass logic for ALU input A
+    assign ALU_input_A_check1 = (DXout_4[21:17] == XMDout_4[26:22]) ? X_to_M : DXout_2;
+
+    assign ALU_input_A_check2 = (DXout_4[21:17] == MWout_4[26:22]) ? data_writeReg : ALU_input_A_check1;
+
+    //bypass logic for ALU input B
+    assign ALU_input_B_check1 = (DXout_4[16:12] == XMDout_4[26:22]) ? X_to_M : DXout_3;
+
+    assign ALU_input_B_check2 = (DXout_4[16:12] == MWout_4[26:22]) ? data_writeReg : ALU_input_B_check1;
+
+    alu my_alu(ALU_input_A_check2, ALU_input_B_check2, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
     alu my_alu_3(DXout_1, 32'b1, 5'b0, 5'b0, DXout_1_plus_one, not_in_use_1, not_in_use_2, not_in_use_3);
 
-    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : DXout_2; // Choosing between PC and normal Rs
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : ALU_input_A_check2; // Choosing between PC and normal Rs
 
     assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? DXout_3 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
 
@@ -216,12 +233,17 @@ module processor(
     /////////////////////////  Memorying Instruction /////////////////////////
 	latch X_M(not_clock, diff_latch_enable, reset, DXout_1, DX_data_writeReg_3, D_to_X, altDXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
+    assign XM_Opcode = DXout_4[31:27];
+    assign XM_rd = DXout_4[26:22];
+    assign XM_rs = DXout_4[21:17];
+    assign XM_rt = DXout_4[16:12];
+    assign XM_shamt = DXout_4[11:7];
+    assign XM_AlU_op = DXout_4[6:2];
+
     assign address_dmem = XMDout_2;
     assign wren = (XMDout_4[31:27] == 5'b00111) ? 1'b1 : 1'b0;
-    assign X_to_M = (XMDout_4[31:27] == 5'b01000) ? q_dmem : XMDout_2;
-    assign data = XMDout_3; //data = $rd
-
-    // Code for writing to data memory
+    assign X_to_M = (XMDout_4[31:27] == 5'b01000) ? q_dmem : XMDout_2; // choose either result or q_dmem incase of lw
+    assign data = (XMDout_4[26:22] == MWout_4[26:22]) ? data_writeReg : XMDout_3; //data = $rd
 
     /////////////////////////  Writebacking Instruction /////////////////////////
     latch M_W(not_clock, diff_latch_enable, reset, XMDout_1, X_to_M, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
