@@ -159,11 +159,14 @@ module processor(
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
     // bypass logic for ALU input A
-    assign ALU_input_A_check1 = ((DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
+    assign ALU_input_A_check1 = ((DXout_4[26:22] == 5'b11111 && MWout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100) || (DX_Opcode == 5'b00100 && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
 
-    assign ALU_input_A_check2 = ((DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == XMDout_4[26:22])) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
+    assign ALU_input_A_check2 = ((DXout_4[26:22] == 5'b11111 && XMDout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100) || (DX_Opcode == 5'b00100 && DXout_4[26:22] == XMDout_4[26:22]) || (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == XMDout_4[26:22])) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
 
     assign ALU_input_A_check3 = (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_A_check2; // incase setx instruction later and using r31 then bypass
+
+    // (DXout_4[26:22] == 5'b11111 && MWout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100)
+    // (DXout_4[26:22] == 5'b11111 && XMDout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100)
 
     //bypass logic for ALU input B
     assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[21:17] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
@@ -184,11 +187,11 @@ module processor(
 
     assign DX_data_writeReg = (DX_Opcode[0] == 1'b1 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? alu_result_temp_w_imm : alu_result_temp; // for lw, sw, or addi use immediate value
 
-    assign DX_data_writeReg_2 = (DX_Opcode == 5'b00011) ? PC : DX_data_writeReg;
+    assign DX_data_writeReg_2 = (DX_Opcode == 5'b00011) ? DXout_1_plus_one : DX_data_writeReg; //incase jal instruction than just take PC
 
     assign do_bex = (DXout_2 != 32'b0) ? 1'b1 : 1'b0;
 
-    assign new_address = (DX_Opcode == 5'b00100) ? DXout_2 : {PC[31:27], DX_target};
+    assign new_address = (DX_Opcode == 5'b00100) ? ALU_input_A_check3 : {PC[31:27], DX_target}; // incase jr then choose rd
 
     assign new_address_2 = ((DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1)) ? alu_result_temp_w_imm : new_address;
 
@@ -214,17 +217,17 @@ module processor(
 
     // Checking for status registers
 
-    assign rstat_1 = (DX_AlU_op == 5'b00000) && (overflow == 1'b1) ? 32'b1 : 32'b0;
+    assign rstat_1 = (DX_AlU_op == 5'b00000 && DX_Opcode == 5'b00000) && (overflow == 1'b1) ? 32'b1 : 32'b0;
     assign rstat_2 = (DX_Opcode == 5'b00101 && overflow_2 == 1'b1) ? 32'b00000000000000000000000000000010 : 32'b0;
-    assign rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1) ? 32'b00000000000000000000000000000011 : 32'b0;
-    assign rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1) ? 32'b00000000000000000000000000000100 : 32'b0;
-    assign rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1) ? 32'b00000000000000000000000000000101 : 32'b0;
+    assign rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1 && DX_Opcode == 5'b00000) ? 32'b00000000000000000000000000000011 : 32'b0;
+    assign rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1 && DX_Opcode == 5'b00000) ? 32'b00000000000000000000000000000100 : 32'b0;
+    assign rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1 && DX_Opcode == 5'b00000) ? 32'b00000000000000000000000000000101 : 32'b0;
 
-    assign checK_rstat_1 = (DX_AlU_op == 5'b00000 && overflow == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_1 = (DX_AlU_op == 5'b00000 && overflow == 1'b1 && DX_Opcode == 5'b00000) ? 1'b1 : 1'b0;
     assign checK_rstat_2 = (DX_Opcode == 5'b00101 && overflow_2 == 1'b1) ? 1'b1 : 1'b0;
-    assign checK_rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1) ? 1'b1 : 1'b0;
-    assign checK_rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1) ? 1'b1 : 1'b0;
-    assign checK_rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1) ? 1'b1 : 1'b0;
+    assign checK_rstat_3 = (DX_AlU_op == 5'b00001 && overflow == 1'b1 && DX_Opcode == 5'b00000) ? 1'b1 : 1'b0;
+    assign checK_rstat_4 = (DX_AlU_op == 5'b00110 && data_exception == 1'b1 && DX_Opcode == 5'b00000) ? 1'b1 : 1'b0;
+    assign checK_rstat_5 = (DX_AlU_op == 5'b00111 && data_exception == 1'b1 && DX_Opcode == 5'b00000) ? 1'b1 : 1'b0;
 
     or finalchecl(there_is_rs, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5);
 
