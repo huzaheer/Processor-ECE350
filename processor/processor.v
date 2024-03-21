@@ -159,16 +159,16 @@ module processor(
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
     // bypass logic for ALU input A
-    assign ALU_input_A_check1 = ((DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
+    assign ALU_input_A_check1 = ((DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
 
-    assign ALU_input_A_check2 = (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
+    assign ALU_input_A_check2 = ((DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == XMDout_4[26:22])) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
 
     assign ALU_input_A_check3 = (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_A_check2; // incase setx instruction later and using r31 then bypass
 
     //bypass logic for ALU input B
-    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
+    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[21:17] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
 
-    assign ALU_input_B_check2 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : ALU_input_B_check1;
+    assign ALU_input_B_check2 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[21:17] == XMDout_4[26:22]) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : ALU_input_B_check1;
 
     assign ALU_input_B_check3 = (DXout_4[16:12] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_B_check2; // incase setx instruction later and using r31 then bypass
 
@@ -176,7 +176,7 @@ module processor(
 
     alu my_alu_3(DXout_1, 32'b1, 5'b0, 5'b0, DXout_1_plus_one, not_in_use_1, not_in_use_2, not_in_use_3);
 
-    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : ALU_input_A_check3; // Choosing between PC and normal Rs
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : ALU_input_A_check3; // Choosing between PC (for bne and blt) and normal Rs
 
     assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? ALU_input_B_check3 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
 

@@ -1,12 +1,27 @@
-nop             # Values initialized using addi (positive only)
-nop             # Author: Oliver Rodas
+nop 	# simple jr test case
+nop 
+nop 
 nop
 nop
-nop             # Exception Bypassing
-addi $r1, $r0, 32767    # r1 = 32767
-sll $r1, $r1, 16        # r1 = 2147418112
-addi $r1, $r1, 65535    # r1 = 2147483647 (Max positive integer)
-addi $r2, $r0, 2        # r2 = 2
-addi $r3, $r0, 1        # r3 = 1
-add $r5, $r1, $r3        # add ovfl --> rstatus = 1
-add $r4, $r2, $r30        # r4 = r2 + rstatus = 3    (X->D)
+nop
+addi    $r1, $r0, 4     # $r1 = 4
+addi    $r2, $r0, 5     # $r2 = 5
+nop
+nop
+sub     $r3, $r0, $r1   # $r3 = -4
+sub     $r4, $r0, $r2   # $r4 = -5
+nop
+nop
+nop 	
+addi	$r31, $r0, 20	# $r31 = 20
+jr	$r31		# go to j2
+addi 	$r20, $r20, 1	# r20 += 1 (Incorrect)
+addi 	$r20, $r20, 1	# r20 += 1 (Incorrect)
+addi 	$r20, $r20, 1	# r20 += 1 (Incorrect)
+j2:
+addi	$r10, $r10, 1	# r10 += 1 (Correct)
+nop
+nop
+nop
+nop
+# Final: $r10 should be 1, $r20 should be 0
