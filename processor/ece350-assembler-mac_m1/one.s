@@ -2,11 +2,11 @@ nop             # Values initialized using addi (positive only)
 nop             # Author: Oliver Rodas
 nop
 nop
-nop             # Basic Bypassing to Memory
-addi $1, $0, 12        # r1 = 12
-sw $1, 1($0)        # mem[1] = r1 = 12        (X->D)
-addi $2, $0, 14        # r2 = 14
-addi $3, $0, 51        # r3 = 51
-sw $3, 0($2)         # mem[r2] = r3 = 51        (X->D and M->D)
-lw $4, 1($0)        # r4 = mem[1] = 12
-lw $5, 0($2)        # r5 = mem[r2] = 51
+nop             # Exception Bypassing
+addi $r1, $r0, 32767    # r1 = 32767
+sll $r1, $r1, 16        # r1 = 2147418112
+addi $r1, $r1, 65535    # r1 = 2147483647 (Max positive integer)
+addi $r2, $r0, 2        # r2 = 2
+addi $r3, $r0, 1        # r3 = 1
+add $r5, $r1, $r3        # add ovfl --> rstatus = 1
+add $r4, $r2, $r30        # r4 = r2 + rstatus = 3    (X->D)

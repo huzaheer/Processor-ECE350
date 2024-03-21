@@ -159,14 +159,14 @@ module processor(
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
     // bypass logic for ALU input A
-    assign ALU_input_A_check1 = (DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) ? data_writeReg : DXout_2; //ignore all bypasses for zero
+    assign ALU_input_A_check1 = (DXout_4[21:17] == XMDout_4[26:22]) ? X_to_M : DXout_2;
 
-    assign ALU_input_A_check2 = (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
+    assign ALU_input_A_check2 = (DXout_4[21:17] == MWout_4[26:22]) ? data_writeReg : ALU_input_A_check1;
 
     //bypass logic for ALU input B
-    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
+    assign ALU_input_B_check1 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : DXout_3;
 
-    assign ALU_input_B_check2 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : ALU_input_B_check1;
+    assign ALU_input_B_check2 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg : ALU_input_B_check1;
 
     alu my_alu(ALU_input_A_check2, ALU_input_B_check2, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
