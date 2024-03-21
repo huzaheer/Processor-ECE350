@@ -80,7 +80,7 @@ module processor(
     wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
     wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs, not_in_use_1, not_in_use_2, not_in_use_3;
     wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4, DXout_1_plus_one;
-    wire [31:0] ALU_input_A_check1, ALU_input_A_check2, ALU_input_B_check1, ALU_input_B_check2, WM_bypass, stall, account_stall;
+    wire [31:0] ALU_input_A_check1, ALU_input_A_check2, ALU_input_A_check3, ALU_input_B_check1, ALU_input_B_check2, ALU_input_B_check3, WM_bypass, stall, account_stall, status_result;
     // assign not_clock to trigger on falling edge
     assign not_clock = ~clock;
     assign diff_latch_enable = 1'b1;
@@ -159,22 +159,26 @@ module processor(
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
     // bypass logic for ALU input A
-    assign ALU_input_A_check1 = (DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) ? data_writeReg : DXout_2; //ignore all bypasses for zero
+    assign ALU_input_A_check1 = ((DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
 
     assign ALU_input_A_check2 = (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
 
+    assign ALU_input_A_check3 = (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_A_check2; // incase setx instruction later and using r31 then bypass
+
     //bypass logic for ALU input B
-    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
+    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
 
     assign ALU_input_B_check2 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : ALU_input_B_check1;
 
-    alu my_alu(ALU_input_A_check2, ALU_input_B_check2, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
+    assign ALU_input_B_check3 = (DXout_4[16:12] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_B_check2; // incase setx instruction later and using r31 then bypass
+
+    alu my_alu(ALU_input_A_check3, ALU_input_B_check3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
     alu my_alu_3(DXout_1, 32'b1, 5'b0, 5'b0, DXout_1_plus_one, not_in_use_1, not_in_use_2, not_in_use_3);
 
-    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : ALU_input_A_check2; // Choosing between PC and normal Rs
+    assign PC_or_Reg = (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) ? DXout_1_plus_one : ALU_input_A_check3; // Choosing between PC and normal Rs
 
-    assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? ALU_input_B_check2 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
+    assign PC_or_Reg_or_Rs = (DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) ? ALU_input_B_check3 : PC_or_Reg; // Choosing between rs or rd in case of lw or sw
 
     alu my_alu_2(PC_or_Reg_or_Rs, sign_ext_imm, 5'b0, DX_shamt, alu_result_temp_w_imm, isNotEqual_2, isLessThan_2, overflow_2); // ALU for immediate values
 
@@ -244,14 +248,15 @@ module processor(
     assign wren = (XMDout_4[31:27] == 5'b00111) ? 1'b1 : 1'b0;
     assign X_to_M = (XMDout_4[31:27] == 5'b01000) ? q_dmem : XMDout_2; // choose either result or q_dmem incase of lw
     assign data = (XMDout_4[26:22] == MWout_4[26:22]) ? data_writeReg : XMDout_3; //data = $rd
+    assign status_result = {5'b00000, XMDout_4[26:0]}; //incase setx instruction, store data for $r31 in status_result
 
     /////////////////////////  Writebacking Instruction /////////////////////////
     latch M_W(not_clock, diff_latch_enable, reset, XMDout_1, X_to_M, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
 
     assign ctrl_writeEnable = (MWout_4[31:27] == 5'b00000 || MWout_4[31:27] == 5'b00101 || MWout_4[31:27] == 5'b00011 || MWout_4[31:27] == 5'b01000 || MWout_4[31:27] == 5'b10101) ? 1'b1 : 1'b0;
     assign data_writeReg = (MWout_4[31:27] == 5'b10101) ? {5'b00000, MWout_4[26:0]} : MWout_2;
-    assign ctrl_writeRegtemp = (MWout_4[31:27] == 5'b00011) ? 5'b11111 : MWout_4[26:22]; 
-    assign ctrl_writeReg = (MWout_4[31:27] == 5'b10101) ? 5'b11110 : ctrl_writeRegtemp;
+    assign ctrl_writeRegtemp = (MWout_4[31:27] == 5'b00011) ? 5'b11111 : MWout_4[26:22]; // choose r31 incase jal ins
+    assign ctrl_writeReg = (MWout_4[31:27] == 5'b10101) ? 5'b11110 : ctrl_writeRegtemp; // choose r30 incase setx ins
 	/* END CODE */
 
 endmodule
