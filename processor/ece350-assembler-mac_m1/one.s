@@ -1,96 +1,115 @@
-nop 				# Advanced Control Test with Bypassing
-nop 				# Values initialized using addi (positive only)
-nop 				# Registers 10,11 track correct and 20,21 track incorrect
-nop 				# Values in the first two tests be updated if the number of lines is modified
-nop 				# Author: Nathaniel Brooke
+nop             # Sort
+nop             # Author: Jack Proudfoot
+nop             
+nop
+init:
+addi $sp, $zero, 256        # $sp = 256
+addi $27, $zero, 3840       # $27 = 3840 address for bottom of heap
+addi $t0, $zero, 50
+addi $t1, $zero, 3
+sw $t1, 0($t0)
+addi $t1, $zero, 1
+sw $t1, 1($t0)
+addi $t1, $zero, 4
+sw $t1, 2($t0)
+addi $t1, $zero, 2
+sw $t1, 3($t0)
+add $a0, $zero, $t0
+j main
+malloc:                     # $a0 = number of words to allocate
+sub $27, $27, $a0           # allocate $a0 words of memory
+blt $sp, $27, mallocep      # check for heap overflow
+mallocep:
+add $v0, $27, $zero
+jr $ra
+buildlist:                  # $a0 = memory address of input data
+sw $ra, 0($sp)
+addi $sp, $sp, 1
+add $t0, $a0, $zero         # index of input data
+add $t1, $zero, $zero       # current list pointer
+addi $a0, $zero, 0
+jal malloc
+addi $t3, $v0, -3           # list head pointer
+lw $t2, 0($t0)              # load first data value
+j blguard
+blstart:
+addi $a0, $zero, 3
+jal malloc
+sw $t2, 0($v0)              # set new[0] = data
+sw $t1, 1($v0)              # set new[1] = prev
+sw $zero, 2($v0)            # set new[2] = next
+sw $v0, 2($t1)              # set curr.next = new
+addi $t0, $t0, 1            # increment input data index
+lw $t2, 0($t0)              # load next input data value
+add $t1, $zero, $v0         # set curr = new
+blguard:
+bne $t2, $zero, blstart
+add $v0, $t3, $zero         # set $v0 = list head
+addi $sp, $sp, -1
+lw $ra, 0($sp)
+jr $ra
+sort:                       # $a0 = head of list
+sw $ra, 0($sp)
+addi $sp, $sp, 1
+sortrecur:
+addi $t7, $zero, 0          # $t7 = 0
+add $t0, $a0, $zero         # $t0 = head
+add $t1, $t0, $zero         # $t1 = current
+j siguard
+sortiter:
+lw $t2, 0($t1)              # $t2 = current.data
+lw $t3, 0($t6)              # $t3 = current.next.data
+blt $t2, $t3, sinext
+addi $t7, $zero, 1          # $t7 = 1
+lw $t4, 1($t1)              # $t4 = current.prev
+bne $t4, $zero, supprev
+j supprevd
+supprev:
+sw $t6, 2($t4)              # current.prev.next = current.next
+supprevd:
+sw $t4, 1($t6)              # current.next.prev = current.prev
+lw $t5, 2($t6)              # $t5 = current.next.next
+bne $t5, $zero, supnnprev
+j supnnprevd
+supnnprev:
+sw $t1, 1($t5)              # current.next.next.prev = current
+supnnprevd:
+sw $t5, 2($t1)              # current.next = current.next.next
+sw $t1, 2($t6)              # current.next.next = current
+sw $t6, 1($t1)              # current.prev = current.next
+bne $t0, $t1, sinext
+add $t0, $t6, $zero         # head = current.next
+sinext:
+add $t1, $t6, $zero         # $t1 = current.next
+siguard:
+lw $t6, 2($t1)              # $t6 = current.next
+bne $t6, $zero, sortiter
+add $a0, $t0, $zero
+bne $t7, $zero, sortrecur
+add $v0, $t0, $zero         # $v0 = head
+addi $sp, $sp, -1
+lw $ra, 0($sp)
+jr $ra
+main:
+jal buildlist
+add $t0, $v0, $zero         # $t0 = head of list
+add $a0, $t0, $zero         # $a0 = head of list
+jal sort
+add $t0, $v0, $zero         # $t0 = head of sorted list
+add $t5, $zero, $zero
+add $t6, $zero, $zero
+add $t1, $t0, $zero
+j procguard
+proclist:
+lw $t2, 0($t1)
+add $t5, $t5, $t2
+sll $t6, $t6, 3
+add $t6, $t6, $t5
+lw $t1, 2($t1)
+procguard:
+bne $t1, $zero, proclist
+stop:
 nop
 nop
-nop 				    # Test Bypassing into JR
-addi $r31, $r0, 12		# r31 = 12
-nop				        # Avoid RAW hazard for jr
-addi $r31, $r0, 16		# r31 = 16 (with RAW hazard)
-jr $r31     			# PC = r31 = 16
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r10, $r10, 1		# r10 += 1 (Correct)
-add $r11, $r10, $r11		# Accumulate r10 score
-add $r21, $r20, $r21		# Accumulate r20 score
-and $r10, $r0, $r10		# r10 should be 1
-and $r20, $r0, $r20		# r20 should be 0
 nop
-nop 				# Test JAL into JR
-addi $r31, $r0, 32		# r31 = 32
-nop				# Avoid RAW hazard for jr
-jal j1				# jal to jr (with RAW hazard)
-nop				# Spacer
-nop				# Spacer
-j end1				# Jump to test cleanup
-nop				# Spacer
-nop				# Spacer
-j1: jr $r31 			# jr immediately after jal
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-end1: nop			# Landing pad for jump
-add $r11, $r10, $r11		# Accumulate r10 score
-add $r21, $r20, $r21		# Accumulate r20 score
-and $r10, $r0, $r10		# r10 should be 0
-and $r20, $r0, $r20		# r20 should be 0
-nop
-nop 				# Test Bypassing into Branch (with loops)
-addi $r1, $r0, 5		# r1 = 5
-b1: addi $r2, $r2, 1		# r2 += 1
-blt $r2, $r1, b1		# if r2 < r1 take branch (5 times)
-b2: addi $r1, $r1, 1		# r1 += 1
-addi $r3, $r3, 2		# r3 += 2
-blt $r3, $r1, b2		# if r3 < r1 take branch (4 times)
-add $r10, $r2, $r3		# r10 = r2 + r3
-add $r11, $r10, $r11		# Accumulate r10 score
-add $r21, $r20, $r21		# Accumulate r20 score
-and $r10, $r0, $r10		# r10 should be 15
-and $r20, $r0, $r20		# r20 should be 0
-nop
-nop 				# Test bypassing into bex
-setx 0				# r30 = 0
-nop				# Avoid RAW hazard from first setx
-setx 10				# r30 = 10 (with RAW hazard)
-bex e1				# r30 != 0 --> taken
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-e1: addi $r10, $r10, 1		# r10 += 1 (Correct)
-add $r11, $r10, $r11		# Accumulate r10 score
-add $r21, $r20, $r21		# Accumulate r20 score
-and $r10, $r0, $r10		# r10 should be 1
-and $r20, $r0, $r20		# r20 should be 0
-nop
-nop 				# Test Branch/Jump Race Condition
-addi $r4, $r0, 1		# r4 = 1
-nop				# Avoid RAW hazard
-bne $r4, $r0, rgood		# Branch racing (should branch)
-j rbad				# Jump racing (should not jump)
-nop				# Spacer
-nop				# Spacer
-nop				# Spacer
-nop				# Spacer
-rbad: nop			# Landing pad for jump
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-addi $r20, $r20, 1		# r20 += 1 (Incorrect)
-j end2				# Jump to test cleanup
-nop				# Spacer
-rgood: nop			# Landing pad for branch
-addi $r10, $r10, 1		# r10 += 1 (Correct)
-addi $r10, $r10, 1		# r10 += 1 (Correct)
-end2: nop			# Landing pad for jump
-nop				# Avoid RAW hazard
-add $r11, $r10, $r11		# Accumulate r10 score
-add $r21, $r20, $r21		# Accumulate r20 score
-and $r10, $r0, $r10		# r10 should be 2
-and $r20, $r0, $r20		# r20 should be 0
-nop
-nop 				# Final Check (All Correct)
-and $r0, $r11, $r11		# r11 should be 19
-and $r0, $r21, $r21		# r21 should be 0
+j stop

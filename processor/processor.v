@@ -78,7 +78,7 @@ module processor(
     wire Cout, ovf, ctrl_MULT, ctrl_DIV, data_exception, data_resultRDY, my_counter_reset, turn_off, ctrl_DIV_initial, ctrl_MULT_initial, latch_enable, stalled_enable; //randos
     wire [4:0] counter_out;
     wire [31:0] PC_or_Reg, X_to_M, D_to_X, PC_or_Reg_or_Rs, DX_data_writeReg_3, altDXout_4;//more randos
-    wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs, not_in_use_1, not_in_use_2, not_in_use_3;
+    wire multdiv_alarm, diff_latch_enable, do_bex, checK_rstat_1, checK_rstat_2, checK_rstat_3, checK_rstat_4, checK_rstat_5, there_is_rs, not_in_use_1, not_in_use_2, not_in_use_3, can_bypass_1, can_bypass_2;
     wire [31:0] rstat_1, rstat_2, rstat_3, rstat_4, rstat_5, rs_temp_1, actualrs, altFDout_4, DXout_1_plus_one;
     wire [31:0] ALU_input_A_check1, ALU_input_A_check2, ALU_input_A_check3, ALU_input_B_check1, ALU_input_B_check2, ALU_input_B_check3, WM_bypass, stall, account_stall, status_result;
     // assign not_clock to trigger on falling edge
@@ -134,8 +134,12 @@ module processor(
     ///////// Flushing this instruction incase the next instruction is a taken branch or jump or if stall in which case we remember but wait one cycle before continuing
     assign altFDout_4 = (DX_Opcode == 5'b00001 || DX_Opcode == 5'b00011 || stall == 1'b1 || DX_Opcode == 5'b00100 || (DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1) || (DX_Opcode == 5'b10110 && do_bex == 1'b1)) ? 32'b0 : FDout_4;
 
-    //////// Logic for when to stall
-    assign stall = (DX_Opcode == 5'b01000 && ((FD_rs == DX_rd) || (DX_Opcode != 5'b00111 && FD_rt == DX_rd))) ? 1'b1 : 1'b0;
+    //////// Logic for when to stall (only incase of lw in pipeline)
+        // if rd = rs
+        // if rd = rt for ALU ops involving rt
+        // if rd = rd for operations that read from rd (bne, blt, jr)
+        // why not add rs support for stalling?
+    assign stall = (DX_Opcode == 5'b01000 && ((DX_rd == FD_rs) || (DX_Opcode != 5'b00111 && DX_rd == FD_rt && DX_Opcode == 5'b00000 && DX_AlU_op != 5'b00100 && DX_AlU_op != 5'b00101) || ((FD_Opcode == 5'b00010 || FD_Opcode == 5'b00110 || FD_Opcode == 5'b00100) && (DX_rd == FD_rd)))) ? 1'b1 : 1'b0;
 
     assign stalled_enable = (stall == 1'b1 || latch_enable == 1'b0) ? 1'b0 : 1'b1;
 
@@ -159,21 +163,37 @@ module processor(
     assign sign_ext_imm = {{15{DX_immediate[16]}}, DX_immediate};
 
     // bypass logic for ALU input A
-    assign ALU_input_A_check1 = ((DXout_4[26:22] == 5'b11111 && MWout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100) || (DX_Opcode == 5'b00100 && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101)) ? data_writeReg : DXout_2; //ignore all bypasses for zero
+    //////// Logic for when to bypass --> MW first, then XM so bypass always gets most recent value
+        // if rs = 31 and jal instruction down the pipeline
+        // if (jr, bne, blt) insn and rd = rd down the pipeline OR rd = 31 and jal down the pipe OR rd = 30 and setx down the pipe <-- why not sw?
+        // if rs = rd down the pipeline excluding when rd = 0 or when operations (bne, blt, j, jr, sw)
+        // if rs = 30 and setx instruction down the pipeline
+        // add zero checks in all cases except jal and setx
+        // case for if (jr, bne, blt) insn and rd = 31 and jal down the line? <-- done
 
-    assign ALU_input_A_check2 = ((DXout_4[26:22] == 5'b11111 && XMDout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100) || (DX_Opcode == 5'b00100 && DXout_4[26:22] == XMDout_4[26:22]) || (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[26:22] == XMDout_4[26:22])) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
+    //don't bypass if any of (bne, blt, j, jr, sw)
+    assign can_bypass_1 = (MWout_4[31:27] != 5'b00111) && (MWout_4[31:27] != 5'b00010) && (MWout_4[31:27] != 5'b00110) && (MWout_4[31:27] != 5'b00100) && (MWout_4[31:27] != 5'b00001) && (MWout_4[31:27] != 5'b10110);
+    assign can_bypass_2 = (XMDout_4[31:27] != 5'b00111) && (XMDout_4[31:27] != 5'b00010) && (XMDout_4[31:27] != 5'b00110) && (XMDout_4[31:27] != 5'b00100) && (XMDout_4[31:27] != 5'b00001) && (XMDout_4[31:27] != 5'b10110);
 
-    assign ALU_input_A_check3 = (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_A_check2; // incase setx instruction later and using r31 then bypass
+    assign ALU_input_A_check1 = (can_bypass_1 == 1'b1 && ((DXout_4[21:17] == 5'b11111 && MWout_4[31:27] == 5'b00011) || (DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000 && (DXout_4[31:27] == 5'b00000 || DXout_4[31:27] == 5'b00101)) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00100 || DX_Opcode == 5'b00111) && ((DXout_4[26:22] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) || (DXout_4[26:22] == 5'b11111 && MWout_4[31:27] == 5'b00011) || (DXout_4[26:22] == 5'b11110 && MWout_4[31:27] == 5'b10101))) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101))) ? data_writeReg : DXout_2; //ignore all bypasses for zero
 
-    // (DXout_4[26:22] == 5'b11111 && MWout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100)
-    // (DXout_4[26:22] == 5'b11111 && XMDout_4[31:27] == 5'b00011 && DX_Opcode == 5'b00100)
+    assign ALU_input_A_check2 = (can_bypass_2 == 1'b1 && ((DXout_4[21:17] == 5'b11111 && XMDout_4[31:27] == 5'b00011) || (DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000 && (DXout_4[31:27] == 5'b00000 || DXout_4[31:27] == 5'b00101)) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00100 || DX_Opcode == 5'b00111) && ((DXout_4[26:22] == XMDout_4[26:22] && XMDout_4[26:22] != 5'b00000) || (DXout_4[26:22] == 5'b11111 && XMDout_4[31:27] == 5'b00011))))) ?  X_to_M: ALU_input_A_check1; // ignore all bypasses for zero
+
+    assign ALU_input_A_check3 = (((DXout_4[26:22] == 5'b11110 && XMDout_4[31:27] == 5'b10101) && (DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00100)) || (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101)) ? status_result : ALU_input_A_check2; // incase setx instruction later and using r31 then bypass
 
     //bypass logic for ALU input B
-    assign ALU_input_B_check1 = ((DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000 && MWout_4[31:27] != 5'b00110 && MWout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[21:17] == MWout_4[26:22]) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == MWout_4[26:22] && MWout_4[31:27] != 5'b00111)) ? data_writeReg: DXout_3;
+    //////// Logic for when to bypass --> MW first, then XM so bypass always gets most recent value
+        // if rt = rd AND ALU op excluding (bne, blt, j, jr, sw) down the pipeline
+        // if rs = rd for (blt, bne, lw, sw) OR if rs = 31 and jal down the pipe OR if rs = 30 and setx down the pipe
+        // if rt = 30 and setx instruction
+        // if rt = 31 and jal instruction down the pipeline
+        // missing zero checks? done
+        // check for jal? done
+    assign ALU_input_B_check1 = (can_bypass_1 == 1'b1 && ((DXout_4[16:12] == 5'b11111 && MWout_4[31:27] == 5'b00011) || (DXout_4[16:12] == MWout_4[26:22] && DX_Opcode == 5'b00000 && MWout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && ((DXout_4[21:17] == MWout_4[26:22] && MWout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11111 && MWout_4[31:27] == 5'b00011) || (DXout_4[21:17] == 5'b11110 && MWout_4[31:27] == 5'b10101))) || (DXout_4[16:12] == 5'b11110 && MWout_4[31:27] == 5'b10101))) ? data_writeReg: DXout_3;
 
-    assign ALU_input_B_check2 = ((DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000 && XMDout_4[31:27] != 5'b00110 && XMDout_4[31:27] != 5'b00010) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110) && DXout_4[21:17] == XMDout_4[26:22]) || ((DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && DXout_4[21:17] == XMDout_4[26:22] && XMDout_4[31:27] != 5'b00111)) ? X_to_M : ALU_input_B_check1;
+    assign ALU_input_B_check2 = (can_bypass_2 == 1'b1 && ((DXout_4[16:12] == 5'b11111 && XMDout_4[31:27] == 5'b00011) || (DXout_4[16:12] == XMDout_4[26:22] && DX_Opcode == 5'b00000 && XMDout_4[26:22] != 5'b00000) || ((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && ((DXout_4[21:17] == XMDout_4[26:22] &&  XMDout_4[26:22] != 5'b00000) || (DXout_4[21:17] == 5'b11111 && XMDout_4[31:27] == 5'b00011) || (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101))))) ? X_to_M : ALU_input_B_check1;
 
-    assign ALU_input_B_check3 = (DXout_4[16:12] == 5'b11110 && XMDout_4[31:27] == 5'b10101) ? status_result : ALU_input_B_check2; // incase setx instruction later and using r31 then bypass
+    assign ALU_input_B_check3 = (((DX_Opcode == 5'b00010 || DX_Opcode == 5'b00110 || DX_Opcode == 5'b00111 || DX_Opcode == 5'b01000) && (DXout_4[21:17] == 5'b11110 && XMDout_4[31:27] == 5'b10101)) || (DXout_4[16:12] == 5'b11110 && XMDout_4[31:27] == 5'b10101)) ? status_result : ALU_input_B_check2; // incase setx instruction later and using r31 then bypass
 
     alu my_alu(ALU_input_A_check3, ALU_input_B_check3, DX_AlU_op, DX_shamt, alu_result_temp, isNotEqual, isLessThan, overflow); // ALU for alu ops
 
@@ -195,7 +215,7 @@ module processor(
 
     assign new_address_2 = ((DX_Opcode == 5'b00010 && isNotEqual == 1'b1) || (DX_Opcode == 5'b00110 && isLessThan == 1'b1)) ? alu_result_temp_w_imm : new_address;
 
-    assign D_to_X = (DX_Opcode == 5'b00111) ? DXout_2 : DXout_3; // D_to_X = $rd if lw or sw
+    assign D_to_X = (DX_Opcode == 5'b00111) ? ALU_input_A_check3 : ALU_input_B_check3; // D_to_X = $rd if sw
 
     // when multdiv, make ctrl_mult or ctrl_div high, turn off write enable and turn it back on when data ready is pulsed
 
