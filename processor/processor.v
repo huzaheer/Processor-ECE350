@@ -225,7 +225,7 @@ module processor(
 
     assign ctrl_DIV = (DX_AlU_op == 5'b00111 && counter_out == 5'b00000) ? 1'b1 : 1'b0; // turn ctrl_div on only for one cycle --> when ALU_op and counter is 0
 
-    multdiv my_multdiv(DXout_2, DXout_3, ctrl_MULT, ctrl_DIV, clock, multdiv_result, data_exception, data_resultRDY); // do ze operation
+    multdiv my_multdiv(ALU_input_A_check3, ALU_input_B_check3, ctrl_MULT, ctrl_DIV, clock, multdiv_result, data_exception, data_resultRDY); // do ze operation
 
     assign my_counter_reset = ((DX_AlU_op == 5'b00110 && counter_out != 5'b01111) || (DX_AlU_op == 5'b00111 && counter_out != 5'b11111)) ? 1'b0 : 1'b1; // reset counter once data result is ready
 
@@ -258,7 +258,7 @@ module processor(
     assign altDXout_4 = (there_is_rs == 1'b1) ? {5'b10101, actualrs[26:0]} : DXout_4;
 
     /////////////////////////  Memorying Instruction /////////////////////////
-	latch X_M(not_clock, diff_latch_enable, reset, DXout_1, DX_data_writeReg_3, D_to_X, altDXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
+	latch X_M(not_clock, latch_enable, reset, DXout_1, DX_data_writeReg_3, D_to_X, altDXout_4, XMDout_1, XMDout_2, XMDout_3, XMDout_4);
 
     assign XM_Opcode = DXout_4[31:27];
     assign XM_rd = DXout_4[26:22];
@@ -274,7 +274,7 @@ module processor(
     assign status_result = {5'b00000, XMDout_4[26:0]}; //incase setx instruction, store data for $r31 in status_result
 
     /////////////////////////  Writebacking Instruction /////////////////////////
-    latch M_W(not_clock, diff_latch_enable, reset, XMDout_1, X_to_M, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
+    latch M_W(not_clock, latch_enable, reset, XMDout_1, X_to_M, 32'b0, XMDout_4, MWDout_1, MWout_2, MWout_3, MWout_4);  //Replace 32'b0 with d later
 
     assign ctrl_writeEnable = (MWout_4[31:27] == 5'b00000 || MWout_4[31:27] == 5'b00101 || MWout_4[31:27] == 5'b00011 || MWout_4[31:27] == 5'b01000 || MWout_4[31:27] == 5'b10101) ? 1'b1 : 1'b0;
     assign data_writeReg = (MWout_4[31:27] == 5'b10101) ? {5'b00000, MWout_4[26:0]} : MWout_2;
